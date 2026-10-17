@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тренер</title>
+<style>
+  :root {
+    --bg: #eceff2; --surface: #f9fafb; --ink: #141c24; --muted: #5d6b79; --line: #cfd6dd;
+    --accent: #2455d6; --accent-ink: #ffffff; --accent-soft: #dbe5fb; --danger: #b3322b; --ok: #1f7a46;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151b; --surface: #181f27; --ink: #e8ecf0; --muted: #93a1af; --line: #2b3641;
+      --accent: #6d94ff; --accent-ink: #0c1118; --accent-soft: #223152; --danger: #ef8a83; --ok: #6fd09a;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px; line-height: 1.45; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 110px; }
+  h1, h2, .num { font-family: "Bahnschrift", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", sans-serif; font-stretch: condensed; letter-spacing: 0.01em; }
+  h1 { font-size: 34px; line-height: 1.05; margin: 0 0 4px; font-weight: 700; }
+  h2 { font-size: 22px; margin: 0 0 12px; font-weight: 700; }
+  h3 { font-size: 16px; margin: 14px 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  [hidden] { display: none !important; }
+
+  .days { display: grid; grid-template-columns: repeat(14, 14px); gap: 4px; margin-bottom: 22px; }
+  .day { width: 14px; height: 14px; border-radius: 3px; background: var(--line); }
+  .day.on { background: var(--accent); }
+  .day.today { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .chip { appearance: none; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; padding: 9px 14px; border-radius: 999px; cursor: pointer; min-height: 44px; }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 18px; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .card-head h2 { margin: 0; }
+  .seg { display: inline-flex; border: 1.5px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; padding: 8px 12px; min-height: 40px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+
+  .readout { min-height: 28px; display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .readout .num { font-size: 30px; font-weight: 700; }
+  .readout span { color: var(--muted); }
+  .chart { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  .chart text { font-size: 11px; fill: var(--muted); }
+  .empty { padding: 28px 12px; text-align: center; color: var(--muted); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .stat .num { font-size: 24px; font-weight: 700; display: block; line-height: 1.1; }
+  .stat small { color: var(--muted); font-size: 13px; }
+  @media (max-width: 520px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  form, .stack { display: grid; gap: 12px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 110px; min-width: 100px; }
+  label { font-size: 14px; color: var(--muted); }
+  input, textarea, select { font: inherit; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; min-height: 46px; width: 100%; }
+  textarea { resize: vertical; min-height: 84px; }
+  input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .btn { appearance: none; border: 0; background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 700; border-radius: 8px; padding: 12px 18px; min-height: 48px; cursor: pointer; font-size: 17px; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.6; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); font-weight: 600; font-size: 15px; }
+  .btn.small { min-height: 40px; padding: 8px 12px; font-size: 14px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .msg { min-height: 22px; font-size: 14px; color: var(--muted); }
+  .msg.err { color: var(--danger); }
+  .msg.ok { color: var(--ok); }
+
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  .list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .list li:last-child { border-bottom: 0; }
+  .l-date { color: var(--muted); font-size: 14px; min-width: 52px; }
+  .l-main { flex: 1; min-width: 0; }
+  .l-main b { font-weight: 600; }
+  .l-main span { color: var(--muted); font-size: 14px; display: block; overflow-wrap: anywhere; }
+  .del { appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; padding: 8px 10px; min-height: 40px; cursor: pointer; border-radius: 6px; }
+  .del:hover { color: var(--danger); }
+
+  /* calories */
+  .daynav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .daynav .num { font-size: 22px; font-weight: 700; }
+  .big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .big .num { font-size: 44px; font-weight: 700; line-height: 1; }
+  .big span { color: var(--muted); }
+  .bar { height: 12px; background: var(--line); border-radius: 6px; overflow: hidden; margin: 10px 0 6px; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+  .bar.over i { background: var(--danger); }
+  .remain { font-weight: 600; }
+  .remain.over { color: var(--danger); }
+  .macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .macros .num { font-size: 20px; font-weight: 700; display: block; line-height: 1.1; }
+  .macros small { color: var(--muted); font-size: 13px; }
+  .goal { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tag { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); font-size: 13px; font-weight: 600; }
+  details { margin-top: 8px; color: var(--muted); font-size: 15px; }
+  details summary { cursor: pointer; color: var(--ink); }
+  .photo-prev { display: flex; align-items: center; gap: 10px; }
+  .photo-prev img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+  .rv { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .rv:last-of-type { border-bottom: 0; }
+  .rv .row { gap: 8px; }
+  .rv .field { flex: 1 1 60px; min-width: 60px; }
+  .banner { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+
+  /* coach */
+  .plan-block { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .plan-items { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
+  .plan-items li { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .plan-items b { font-size: 17px; }
+  .plan-items span { display: block; color: var(--muted); font-size: 14px; }
+  .chat { display: grid; gap: 8px; margin-bottom: 12px; max-height: 420px; overflow-y: auto; }
+  .bubble { padding: 10px 12px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 92%; }
+  .bubble.u { background: var(--accent-soft); justify-self: end; }
+  .bubble.a { background: var(--bg); border: 1px solid var(--line); justify-self: start; }
+
+  /* tab bar */
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--line); display: flex; padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
+  .tabbar button { flex: 1; appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; padding: 10px 2px 12px; min-height: 56px; cursor: pointer; border-top: 3px solid transparent; }
+  .tabbar button[aria-selected="true"] { color: var(--ink); font-weight: 700; border-top-color: var(--accent); }
+  .tabbar-in { display: flex; width: 100%; max-width: 720px; margin: 0 auto; }
+  small.hint { color: var(--muted); font-size: 13px; display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title">Журнал тренувань</h1>
+  <p class="sub" id="sub"></p>
+
+  <!-- ЖУРНАЛ -->
+  <section data-tab="log">
+    <div class="days" id="days" aria-hidden="true"></div>
+    <div class="chips" id="chips" role="group" aria-label="Вправа"></div>
+
+    <div class="card" aria-labelledby="progTitle">
+      <div class="card-head">
+        <h2 id="progTitle">Прогрес</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div class="seg" id="metricSeg" role="group" aria-label="Показник" hidden></div>
+          <div class="seg" id="periodSeg" role="group" aria-label="Період"></div>
+        </div>
+      </div>
+      <div class="readout" id="readout"></div>
+      <div id="chartBox"></div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="card" aria-labelledby="addTitle">
+      <h2 id="addTitle">Новий запис</h2>
+      <form id="form" novalidate>
+        <div class="field"><label for="date">Дата</label><input type="date" id="date" required></div>
+        <div class="row" id="fields"></div>
+        <button class="btn" type="submit">Записати</button>
+        <div class="msg" id="msg" role="status"></div>
+      </form>
+    </div>
+
+    <div class="card" aria-labelledby="histTitle">
+      <h2 id="histTitle">Історія</h2>
+      <ul class="list" id="history"></ul>
+    </div>
+  </section>
+
+  <!-- ЇЖА -->
+  <section data-tab="food" hidden>
+    <div id="foodBanner"></div>
+    <div class="daynav">
+      <button class="btn ghost small" data-action="day" data-v="-1" aria-label="Попередній день">Раніше</button>
+      <span class="num" id="dayLabel"></span>
+      <button class="btn ghost small" data-action="day" data-v="1" id="nextDay" aria-label="Наступний день">Далі</button>
+    </div>
+
+    <div class="card" id="foodSummary"></div>
+    <div class="card" id="goalBox"></div>
+
+    <div class="card">
+      <h2>Що ви з’їли?</h2>
+      <div class="stack">
+        <textarea id="foodText" placeholder="Наприклад: тарілка гречки з куркою, два яйця і яблуко" aria-label="Опис їжі"></textarea>
+        <div class="photo-prev" id="photoPrev" hidden></div>
+        <div class="btns">
+          <button type="button" class="btn ghost small" id="micBtn" data-action="mic">Диктувати</button>
+          <button type="button" class="btn ghost small" data-action="photo">Фото їжі</button>
+          <button type="button" class="btn ghost small" data-action="manual">Вручну</button>
+          <input type="file" id="photoIn" accept="image/*" hidden>
+        </div>
+        <button type="button" class="btn" id="analyzeBtn" data-action="analyze">Оцінити калорії (AI)</button>
+        <div class="msg" id="foodMsg" role="status"></div>
+      </div>
+    </div>
+
+    <div class="card" id="reviewCard" hidden></div>
+
+    <div class="card">
+      <h2>Прийоми їжі</h2>
+      <ul class="list" id="mealList"></ul>
+    </div>
+  </section>
+
+  <!-- ВАГА -->
+  <section data-tab="weight" hidden>
+    <div class="card">
+      <h2>Записати вагу</h2>
+      <form id="wForm" novalidate>
+        <div class="row">
+          <div class="field"><label for="wDate">Дата</label><input type="date" id="wDate"></div>
+          <div class="field"><label for="wKg">Вага, кг</label><input type="number" id="wKg" inputmode="decimal" step="0.1" min="0"></div>
+        </div>
+        <button class="btn" type="submit">Записати</button>
+        <div class="msg" id="wMsg" role="status"></div>
+      </form>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Графік ваги</h2>
+        <div class="seg" id="wPeriodSeg" role="group" aria-label="Період"></div>
+      </div>
+      <div class="readout" id="wReadout"></div>
+      <div id="wChartBox"></div>
+      <div class="stats" id="wStats"></div>
+    </div>
+    <div class="card">
+      <h2>Записи</h2>
+      <ul class="list" id="wList"></ul>
+    </div>
+  </section>
+
+  <!-- ТРЕНЕР -->
+  <section data-tab="coach" hidden>
+    <div id="coachBanner"></div>
+    <div class="card">
+      <h2>Наступне тренування</h2>
+      <div class="stack">
+        <div class="field">
+          <label for="wish">Побажання на сьогодні (необов’язково)</label>
+          <input id="wish" type="text" placeholder="Наприклад: мало часу, 30 хвилин; болить плече">
+        </div>
+        <button class="btn" id="planBtn" data-action="plan">Побудувати тренування</button>
+        <div class="msg" id="planMsg" role="status"></div>
+      </div>
+      <div id="planBox"></div>
+    </div>
+    <div class="card">
+      <h2>Запитати тренера</h2>
+      <div class="chat" id="chatLog"></div>
+      <div class="stack">
+        <textarea id="chatIn" placeholder="Наприклад: чому не росте кількість підтягувань?" aria-label="Питання тренеру"></textarea>
+        <div class="btns">
+          <button class="btn" id="chatBtn" data-action="chat">Надіслати</button>
+          <button class="btn ghost small" data-action="clearchat">Очистити чат</button>
+        </div>
+        <div class="msg" id="chatMsg" role="status"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ПРОФІЛЬ -->
+  <section data-tab="profile" hidden>
+    <div class="card">
+      <h2>Про вас</h2>
+      <div class="stack">
+        <div class="row">
+          <div class="field"><label for="p-age">Вік</label><input id="p-age" type="number" inputmode="numeric" min="10" max="100"></div>
+          <div class="field"><label for="p-sex">Стать</label>
+            <select id="p-sex"><option value="m">Чоловік</option><option value="f">Жінка</option></select></div>
+          <div class="field"><label for="p-height">Зріст, см</label><input id="p-height" type="number" inputmode="numeric" min="100" max="250"></div>
+        </div>
+        <div class="field"><label for="p-activity">Щоденна активність (поза тренуваннями)</label>
+          <select id="p-activity">
+            <option value="1.2">Сидяча робота, мало руху</option>
+            <option value="1.375">Трохи руху, 1–3 тренування на тиждень</option>
+            <option value="1.55">Помірна, 3–5 тренувань на тиждень</option>
+            <option value="1.725">Висока, 6–7 тренувань або фізична робота</option>
+          </select></div>
+        <div class="field"><label for="p-notes">Цілі, травми, обмеження, що треба знати тренеру</label>
+          <textarea id="p-notes" placeholder="Наприклад: хочу підтягнутися 15 разів; колись було розтягнення плеча; не їм молочне"></textarea></div>
+        <div class="msg" id="pMsg" role="status"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Gemini AI</h2>
+      <div class="stack">
+        <div class="field"><label for="p-key">Ключ Gemini API</label>
+          <input id="p-key" type="password" autocomplete="off" placeholder="Вставте ключ з Google AI Studio">
+          <small class="hint">Ключ зберігається лише в цьому браузері. Не вводьте його на чужому пристрої.</small></div>
+        <div class="field"><label for="p-model">Модель</label>
+          <input id="p-model" list="models" placeholder="gemini-4-argon">
+          <datalist id="models"><option value="gemini-4-argon"></option><option value="gemini-3.8-flash"></option></datalist>
+          <small class="hint">gemini-4-argon — найновіша й найрозумніша, але працює лише на платному тарифі Gemini API. gemini-3.8-flash швидша й дешевша.</small></div>
+        <div class="btns">
+          <button class="btn ghost small" data-action="testai">Перевірити з’єднання</button>
+        </div>
+        <div class="msg" id="aiMsg" role="status"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Дані</h2>
+      <div class="stack">
+        <small class="hint">Усі записи зберігаються лише у вашому браузері. Зробіть копію, щоб не втратити їх.</small>
+        <div class="btns">
+          <button class="btn ghost small" data-action="export">Зберегти копію</button>
+          <button class="btn ghost small" data-action="import">Завантажити копію</button>
+          <input type="file" id="importIn" accept="application/json" hidden>
+        </div>
+        <div class="msg" id="dataMsg" role="status"></div>
+        <small class="hint">Поради AI не замінюють лікаря. Якщо є біль, що не минає, або проблеми зі здоров’ям, зверніться до фахівця.</small>
+      </div>
+    </div>
+  </section>
+</div>
+
+<nav class="tabbar" aria-label="Розділи"><div class="tabbar-in" id="tabbar"></div></nav>
+
+<script>
+/* ================= константи ================= */
+const EX = {
+  pushups: { name: 'Віджимання',  type: 'reps' },
+  pullups: { name: 'Турнік',      type: 'reps' },
+  dips:    { name: 'Бруси',       type: 'reps' },
+  squats:  { name: 'Присідання',  type: 'reps' },
+  abs:     { name: 'Прес',        type: 'reps' },
+  shadow:  { name: 'Бій з тінню', type: 'time' },
+  run:     { name: 'Біг',         type: 'run'  }
+};
+const METRICS = {
+  reps: [{ key: 'total', label: 'Повторень', unit: 'повт.' }],
+  time: [{ key: 'min',   label: 'Хвилин',    unit: 'хв' }],
+  run:  [{ key: 'km',    label: 'Дистанція', unit: 'км' }, { key: 'pace', label: 'Темп', unit: 'хв/км' }]
+};
+const RPE = { 1: 'Легко', 2: 'Нормально', 3: 'Важко' };
+const TABS = [
+  ['log', 'Журнал', 'Журнал тренувань'], ['food', 'Їжа', 'Калорії'], ['weight', 'Вага', 'Вага тіла'],
+  ['coach', 'Тренер', 'AI-тренер'], ['profile', 'Профіль', 'Профіль']
+];
+const MODE = { deficit: 'Дефіцит', maintain: 'Підтримка ваги', surplus: 'Профіцит' };
+const DEFAULT_MODEL = 'gemini-4-argon';
+
+let D = null;       // усі дані
+let API_KEY = '';
+const S = { tab: 'log', ex: 'pushups', period: 30, metric: {}, wPeriod: 90, day: '', rpe: 2, prefill: null, photo: null, review: null };
+
+/* ================= утиліти ================= */
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const isoOf = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const todayISO = () => isoOf(new Date());
+const parseISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const dayNum = s => Math.round(parseISO(s).getTime() / 86400000);
+const fmtDate = s => { const [, m, d] = s.split('-'); return d + '.' + m; };
+const fmtNum = n => Number.isInteger(n) ? String(n) : (Math.round(n * 10) / 10).toString().replace('.', ',');
+const fmtPace = p => { const m = Math.floor(p), s = Math.round((p - m) * 60); return s === 60 ? (m + 1) + ':00' : m + ':' + pad(s); };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const byDate = (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+const num = v => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : 0; };
+function setMsg(id, t, kind) { const m = $(id); if (!m) return; m.textContent = t; m.className = 'msg' + (kind ? ' ' + kind : ''); }
+function pluralTr(n) { const a = n % 10, b = n % 100; return (a >= 2 && a <= 4 && (b < 12 || b > 14)) || (a === 1 && b !== 11) ? 'тренування' : 'тренувань'; }
+
+/* ================= сховище ================= */
+async function sget(k) {
+  try {
+    if (window.storage) { const r = await window.storage.get(k, false); return r && r.value; }
+    return window.localStorage ? localStorage.getItem(k) : null;
+  } catch (e) { return null; }
+}
+async function sset(k, v) {
+  try {
+    if (window.storage) await window.storage.set(k, v, false);
+    else if (window.localStorage) localStorage.setItem(k, v);
+    return true;
+  } catch (e) { return false; }
+}
+function defaults() {
+  return { profile: { age: '', sex: 'm', height: '', activity: '1.55', notes: '', model: DEFAULT_MODEL },
+           workouts: [], weights: [], meals: [], nutrition: null, plans: [], chat: [] };
+}
+async function loadAll() {
+  D = defaults();
+  const raw = await sget('wl-data');
+  if (raw) {
+    try { const p = JSON.parse(raw); D = Object.assign(defaults(), p); D.profile = Object.assign(defaults().profile, p.profile || {}); } catch (e) {}
+  } else {
+    const old = await sget('workout-log'); // дані з першої версії
+    if (old) { try { D.workouts = JSON.parse(old); } catch (e) {} }
+  }
+  API_KEY = (await sget('wl-key')) || '';
+}
+async function save() { await sset('wl-data', JSON.stringify(D)); }
+
+/* ================= Gemini ================= */
+async function callGemini(contents, system, json) {
+  if (!API_KEY) throw new Error('Спершу додайте ключ Gemini API у розділі «Профіль».');
+  const model = (D.profile.model || DEFAULT_MODEL).trim();
+  const body = { contents, systemInstruction: { parts: [{ text: system }] } };
+  if (json) body.generationConfig = { responseMimeType: 'application/json' };
+  let r;
+  try {
+    r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': API_KEY }, body: JSON.stringify(body)
+    });
+  } catch (e) {
+    throw new Error('Не вдалося з’єднатися з Gemini. Перевірте інтернет і відкрийте файл у звичайному браузері (у вбудованому перегляді зовнішні запити можуть блокуватися).');
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const m = (j.error && j.error.message) || ('Помилка ' + r.status);
+    if (r.status === 400 && /api key/i.test(m)) throw new Error('Ключ API не підійшов. Перевірте його в профілі.');
+    if (r.status === 403) throw new Error('Доступ заборонено. Для моделі ' + model + ' може знадобитися платний тариф або інший ключ. ' + m);
+    if (r.status === 404) throw new Error('Модель «' + model + '» не знайдено. Змініть її в профілі, наприклад на gemini-3.8-flash.');
+    if (r.status === 429) throw new Error('Перевищено ліміт запитів. Спробуйте за хвилину.');
+    throw new Error(m);
+  }
+  const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+  const text = parts.filter(p => p.text && !p.thought).map(p => p.text).join('');
+  if (!text) throw new Error('Модель повернула порожню відповідь. Спробуйте ще раз.');
+  return text;
+}
+function parseJSON(t) {
+  let s = t.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a >= 0 && b > a) s = s.slice(a, b + 1);
+  return JSON.parse(s);
+}
+async function busy(btnId, label, fn) {
+  const b = $(btnId); const old = b.textContent;
+  b.disabled = true; b.textContent = label;
+  try { await fn(); } finally { b.disabled = false; b.textContent = old; }
+}
+
+/* ================= дані для AI ================= */
+function describeEntry(e) {
+  const t = EX[e.ex] ? EX[e.ex].type : 'reps';
+  if (t === 'reps') return e.sets + ' × ' + e.reps + ' (всього ' + e.sets * e.reps + ')';
+  if (t === 'time') return e.minutes + ' хв';
+  return e.km + ' км за ' + e.minutes + ' хв (темп ' + fmtPace(e.minutes / e.km) + ' хв/км)';
+}
+function latestWeight() { const w = D.weights.slice().sort(byDate); return w.length ? w[w.length - 1].kg : null; }
+function localNorm() {
+  const p = D.profile, w = latestWeight(), age = num(p.age), h = num(p.height);
+  if (!(age > 0 && h > 0 && w)) return null;
+  const bmr = 10 * w + 6.25 * h - 5 * age + (p.sex === 'm' ? 5 : -161);
+  return { bmr: Math.round(bmr), tdee: Math.round(bmr * (num(p.activity) || 1.55)), bmi: Math.round(w / Math.pow(h / 100, 2) * 10) / 10, weight: w };
+}
+function dayTotals(date) {
+  return D.meals.filter(m => m.date === date).reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + (m.p || 0), f: a.f + (m.f || 0), c: a.c + (m.c || 0) }), { kcal: 0, p: 0, f: 0, c: 0 });
+}
+function buildContext() {
+  const today = todayISO(), p = D.profile, ln = localNorm();
+  const L = [];
+  L.push('Сьогодні: ' + today);
+  L.push('ПРОФІЛЬ: вік ' + (p.age || '?') + ', стать ' + (p.sex === 'm' ? 'чоловік' : 'жінка') + ', зріст ' + (p.height || '?') + ' см, активність ×' + p.activity);
+  if (p.notes) L.push('Цілі/травми/обмеження від користувача: ' + p.notes);
+  if (ln) L.push('Поточна вага ' + ln.weight + ' кг, ІМТ ' + ln.bmi + ', BMR ' + ln.bmr + ' ккал, TDEE ' + ln.tdee + ' ккал');
+  const w = D.weights.filter(x => dayNum(x.date) >= dayNum(today) - 90).sort(byDate);
+  L.push('ВАГА за 90 днів: ' + (w.length ? w.map(x => fmtDate(x.date) + '=' + x.kg).join(', ') : 'немає записів'));
+  const wk = D.workouts.filter(x => dayNum(x.date) >= dayNum(today) - 56).sort((a, b) => byDate(a, b) || a.id - b.id);
+  L.push('ТРЕНУВАННЯ за 8 тижнів (дата | вправа | результат | важкість | нотатка):');
+  if (!wk.length) L.push('немає записів');
+  wk.forEach(x => L.push(x.date + ' | ' + (EX[x.ex] ? EX[x.ex].name : x.ex) + ' | ' + describeEntry(x) + ' | ' + (RPE[x.rpe] || '-') + ' | ' + (x.note || '-')));
+  const days = {};
+  D.meals.filter(m => dayNum(m.date) >= dayNum(today) - 14).forEach(m => { days[m.date] = 1; });
+  L.push('ХАРЧУВАННЯ за 14 днів (день: ккал, білки/жири/вуглеводи г):');
+  const ks = Object.keys(days).sort();
+  if (!ks.length) L.push('немає записів');
+  ks.forEach(k => { const t = dayTotals(k); L.push(k + ': ' + Math.round(t.kcal) + ' ккал, Б' + Math.round(t.p) + '/Ж' + Math.round(t.f) + '/В' + Math.round(t.c)); });
+  if (D.nutrition) L.push('Поточна ціль: ' + MODE[D.nutrition.mode] + ', ' + D.nutrition.kcal + ' ккал, Б' + D.nutrition.protein + '/Ж' + D.nutrition.fat + '/В' + D.nutrition.carbs);
+  const lp = D.plans[D.plans.length - 1];
+  if (lp) L.push('ПОПЕРЕДНІЙ ПЛАН (' + lp.date + '): ' + JSON.stringify(lp.data.items || []));
+  return L.join('\n');
+}
+const COACH_SYSTEM = 'Ти — персональний тренер і нутриціолог одного користувача (калістеніка, турнік, бруси, біг, бокс/бій з тінню). ' +
+  'Відповідай українською, чітко й по ділу, без води. Спирайся лише на надані дані; якщо даних мало — скажи про це й запропонуй обережний старт. ' +
+  'Принципи: поступове навантаження (приблизно +5–10% на тиждень), враховуй нотатки (біль, втома, погане самопочуття → знизь навантаження або заміни вправу), оцінку важкості, дні відпочинку, калорійність і динаміку ваги. ' +
+  'Не став діагнозів; якщо біль сильний або не минає — порадь звернутися до лікаря.';
+
+/* ================= графік ================= */
+function niceStep(range, ticks) {
+  const raw = range / ticks, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
+}
+function drawChart(box, readout, pts, o) {
+  if (!pts.length) { box.innerHTML = '<div class="empty">' + o.empty + '</div>'; readout.innerHTML = ''; return; }
+  let hover = pts.length - 1;
+  const W = 640, H = 250, L = 44, R = 14, T = 14, B = 28;
+  const vals = pts.map(p => p.v);
+  let lo = o.zero ? 0 : Math.min(...vals), hi = Math.max(...vals);
+  if (!o.zero) { const pd = Math.max((hi - lo) * 0.3, o.minPad || 0.5); lo = Math.max(0, lo - pd); hi += pd; }
+  if (hi === lo) hi = lo + 1;
+  const step = niceStep(hi - lo, 4);
+  const yMin = o.zero ? 0 : Math.floor(lo / step) * step, yMax = Math.ceil(hi / step) * step;
+  const d0 = dayNum(pts[0].date), d1 = dayNum(pts[pts.length - 1].date), span = Math.max(d1 - d0, 1);
+  const x = p => pts.length === 1 ? (L + (W - R)) / 2 : L + ((dayNum(p.date) - d0) / span) * (W - L - R);
+  const y = v => T + (1 - (v - yMin) / (yMax - yMin)) * (H - T - B);
+  const best = o.lowerBetter ? Math.min(...vals) : Math.max(...vals);
+  const tick = o.tick || (t => fmtNum(Math.round(t * 100) / 100));
+  const n = Math.round((yMax - yMin) / step);
+  let grid = '';
+  for (let i = 0; i <= n; i++) { const t = yMin + i * step; grid += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="var(--line)"/><text x="' + (L - 8) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + tick(t) + '</text>'; }
+  const xl = pts.length === 1 ? [pts[0]] : [pts[0], pts[Math.floor((pts.length - 1) / 2)], pts[pts.length - 1]];
+  const xs = xl.filter((p, i, a) => a.indexOf(p) === i);
+  const xLabels = xs.map((p, i, a) => '<text x="' + x(p) + '" y="' + (H - 8) + '" text-anchor="' + (a.length > 1 && i === 0 ? 'start' : a.length > 1 && i === a.length - 1 ? 'end' : 'middle') + '">' + fmtDate(p.date) + '</text>').join('');
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + x(p).toFixed(1) + ' ' + y(p.v).toFixed(1)).join(' ');
+  const area = pts.length > 1 ? line + ' L' + x(pts[pts.length - 1]).toFixed(1) + ' ' + y(yMin) + ' L' + x(pts[0]).toFixed(1) + ' ' + y(yMin) + ' Z' : '';
+  const draw = () => {
+    const dots = pts.map((p, i) => '<circle cx="' + x(p) + '" cy="' + y(p.v) + '" r="' + (i === hover ? 6 : 3.5) + '" fill="' + (i === hover ? 'var(--accent)' : 'var(--surface)') + '" stroke="var(--accent)" stroke-width="2"/>').join('');
+    box.innerHTML = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(o.label) + '">' + grid +
+      (area ? '<path d="' + area + '" fill="var(--accent)" opacity="0.12"/>' : '') +
+      '<line x1="' + x(pts[hover]) + '" x2="' + x(pts[hover]) + '" y1="' + T + '" y2="' + (H - B) + '" stroke="var(--accent)" stroke-dasharray="3 3" opacity="0.6"/>' +
+      '<path d="' + line + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' + dots + xLabels + '</svg>';
+    const sel = pts[hover];
+    readout.innerHTML = '<span class="num">' + o.fmt(sel.v) + '</span><span>' + o.unit + ' · ' + fmtDate(sel.date) + (o.showBest && sel.v === best && pts.length > 1 ? ' · рекорд' : '') + '</span>';
+    const svg = box.querySelector('svg');
+    const pick = ev => {
+      const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
+      let bi = 0, bd = Infinity;
+      pts.forEach((p, i) => { const dd = Math.abs(x(p) - px); if (dd < bd) { bd = dd; bi = i; } });
+      if (bi !== hover) { hover = bi; draw(); }
+    };
+    svg.addEventListener('pointermove', pick); svg.addEventListener('pointerdown', pick);
+  };
+  draw();
+}
+const periodButtons = (cur, action) => [[30, '30 днів'], [90, '90 днів'], ['all', 'Весь час']].map(([v, l]) =>
+  '<button type="button" data-action="' + action + '" data-v="' + v + '" aria-pressed="' + (String(cur) === String(v)) + '">' + l + '</button>').join('');
+function cutPeriod(pts, period) {
+  if (period === 'all') return pts;
+  const from = dayNum(todayISO()) - period + 1;
+  return pts.filter(p => dayNum(p.date) >= from);
+}
+
+/* ================= ЖУРНАЛ ================= */
+function currentMetric() {
+  const list = METRICS[EX[S.ex].type];
+  return list.find(m => m.key === (S.metric[S.ex] || list[0].key)) || list[0];
+}
+function dailySeries(ex, key) {
+  const by = {};
+  D.workouts.filter(e => e.ex === ex).forEach(e => {
+    const o = by[e.date] || (by[e.date] = { total: 0, min: 0, km: 0 });
+    if (e.sets) o.total += e.sets * e.reps;
+    if (EX[ex].type === 'time') o.min += e.minutes;
+    if (EX[ex].type === 'run') { o.km += e.km; o.min += e.minutes; }
+  });
+  return Object.keys(by).sort().map(date => { const o = by[date]; return { date, v: key === 'pace' ? (o.km > 0 ? o.min / o.km : null) : o[key] }; }).filter(p => p.v != null);
+}
+function renderLog() {
+  const set = new Set(D.workouts.map(e => e.date)), t = new Date();
+  let dh = '';
+  for (let i = 13; i >= 0; i--) { const iso = isoOf(new Date(t.getFullYear(), t.getMonth(), t.getDate() - i)); dh += '<div class="day' + (set.has(iso) ? ' on' : '') + (i === 0 ? ' today' : '') + '" title="' + fmtDate(iso) + '"></div>'; }
+  $('days').innerHTML = dh;
+  const n = [...set].filter(s => dayNum(s) >= dayNum(todayISO()) - 6).length;
+  $('sub').textContent = n ? 'За 7 днів: ' + n + ' ' + pluralTr(n) + '. Нижче — останні 14 днів.' : 'За 7 днів тренувань немає. Час записати перше.';
+
+  $('chips').innerHTML = Object.keys(EX).map(k => '<button type="button" class="chip" data-action="ex" data-v="' + k + '" aria-pressed="' + (k === S.ex) + '">' + EX[k].name + '</button>').join('');
+  const type = EX[S.ex].type, list = METRICS[type], cur = currentMetric();
+  $('metricSeg').hidden = list.length < 2;
+  $('metricSeg').innerHTML = list.map(m => '<button type="button" data-action="metric" data-v="' + m.key + '" aria-pressed="' + (m.key === cur.key) + '">' + m.label + '</button>').join('');
+  $('periodSeg').innerHTML = periodButtons(S.period, 'period');
+
+  const pace = cur.key === 'pace';
+  const pts = cutPeriod(dailySeries(S.ex, cur.key), S.period);
+  drawChart($('chartBox'), $('readout'), pts, {
+    empty: 'Поки немає записів за цей період.<br>Додайте перший нижче.', label: 'Графік прогресу: ' + EX[S.ex].name,
+    zero: !pace, minPad: 0.3, lowerBetter: pace, showBest: true, unit: cur.unit, fmt: v => pace ? fmtPace(v) : fmtNum(v), tick: pace ? fmtPace : null
+  });
+
+  const all = dailySeries(S.ex, list[0].key), box = $('stats');
+  if (!all.length) box.innerHTML = '';
+  else {
+    const last = all[all.length - 1], items = [];
+    if (type === 'run') {
+      const paces = dailySeries(S.ex, 'pace').map(p => p.v);
+      items.push([fmtNum(last.v) + ' км', 'Остання пробіжка'], [fmtNum(Math.max(...all.map(p => p.v))) + ' км', 'Найдовша'],
+        [paces.length ? fmtPace(Math.min(...paces)) : '—', 'Кращий темп, хв/км'], [fmtNum(all.reduce((s, p) => s + p.v, 0)) + ' км', 'Всього']);
+    } else {
+      const u = type === 'time' ? ' хв' : '';
+      items.push([fmtNum(last.v) + u, 'Останнє тренування'], [fmtNum(Math.max(...all.map(p => p.v))) + u, 'Рекорд за день'],
+        [fmtNum(all.reduce((s, p) => s + p.v, 0)) + u, 'Всього'], [String(all.length), 'Днів тренувань']);
+    }
+    box.innerHTML = items.map(([v, l]) => '<div class="stat"><span class="num">' + v + '</span><small>' + l + '</small></div>').join('');
+  }
+  renderLogForm(); renderLogHistory();
+}
+function renderLogForm() {
+  const type = EX[S.ex].type, pf = S.prefill && S.prefill.ex === S.ex ? S.prefill : null;
+  const last = D.workouts.filter(e => e.ex === S.ex).slice(-1)[0];
+  const f = (id, label, val, step) => '<div class="field"><label for="' + id + '">' + label + '</label><input id="' + id + '" type="number" inputmode="decimal" min="0" step="' + (step || 1) + '" value="' + (val == null ? '' : val) + '"></div>';
+  const g = (k, k2) => pf && pf[k] != null ? pf[k] : (last ? last[k2 || k] : '');
+  let h = '';
+  if (type === 'reps') h = f('f-sets', 'Підходи', pf && pf.sets != null ? pf.sets : (last ? last.sets : 3)) + f('f-reps', 'Повторень у підході', pf && pf.reps != null ? pf.reps : (last ? last.reps : 10));
+  if (type === 'time') h = f('f-min', 'Хвилин', g('minutes'));
+  if (type === 'run') h = f('f-km', 'Дистанція, км', g('km'), 0.1) + f('f-min', 'Час, хв', pf && pf.minutes != null ? pf.minutes : (last ? last.minutes : ''), 0.5);
+  h += '<div class="field" style="flex-basis:100%"><label>Як було?</label><div class="seg" id="rpeSeg" role="group" aria-label="Важкість">' +
+    [1, 2, 3].map(k => '<button type="button" data-action="rpe" data-v="' + k + '" aria-pressed="' + (S.rpe === k) + '">' + RPE[k] + '</button>').join('') + '</div></div>' +
+    '<div class="field" style="flex-basis:100%"><label for="f-note">Нотатка (самопочуття, біль, умови)</label><input id="f-note" type="text" placeholder="Наприклад: втомився, заважало ліве плече"></div>';
+  $('fields').innerHTML = h;
+}
+function renderLogHistory() {
+  const ul = $('history');
+  if (!D.workouts.length) { ul.innerHTML = '<li class="empty" style="display:block">Тут з’являться ваші тренування.</li>'; return; }
+  const list = D.workouts.slice().sort((a, b) => a.date === b.date ? b.id - a.id : (a.date < b.date ? 1 : -1)).slice(0, 60);
+  ul.innerHTML = list.map(e => '<li><span class="l-date">' + fmtDate(e.date) + '</span><div class="l-main"><b>' + esc(EX[e.ex] ? EX[e.ex].name : e.ex) + '</b><span>' + esc(describeEntry(e)) +
+    (e.rpe ? ' · ' + RPE[e.rpe] : '') + (e.note ? ' · ' + esc(e.note) : '') + '</span></div><button type="button" class="del" data-action="delw" data-v="' + e.id + '" aria-label="Видалити запис">Видалити</button></li>').join('');
+}
+
+/* ================= ВАГА ================= */
+function renderWeight() {
+  const all = D.weights.slice().sort(byDate);
+  const l = latestWeight();
+  $('sub').textContent = l ? 'Остання вага: ' + fmtNum(l) + ' кг' : 'Запишіть першу вагу, щоб бачити динаміку.';
+  $('wPeriodSeg').innerHTML = periodButtons(S.wPeriod, 'wperiod');
+  const pts = cutPeriod(all.map(w => ({ date: w.date, v: w.kg })), S.wPeriod);
+  drawChart($('wChartBox'), $('wReadout'), pts, { empty: 'Немає записів ваги за цей період.', label: 'Графік ваги тіла', zero: false, minPad: 0.5, unit: 'кг', fmt: fmtNum });
+  const box = $('wStats');
+  if (!pts.length) box.innerHTML = '';
+  else {
+    const first = pts[0].v, last = pts[pts.length - 1].v, d = Math.round((last - first) * 10) / 10, vs = pts.map(p => p.v);
+    const ln = localNorm();
+    const items = [[fmtNum(last) + ' кг', 'Зараз'], [(d > 0 ? '+' : '') + fmtNum(d) + ' кг', 'Зміна за період'], [fmtNum(Math.min(...vs)) + ' кг', 'Мінімум'], [ln ? String(ln.bmi).replace('.', ',') : '—', 'ІМТ']];
+    box.innerHTML = items.map(([v, lb]) => '<div class="stat"><span class="num">' + v + '</span><small>' + lb + '</small></div>').join('');
+  }
+  $('wList').innerHTML = all.length ? all.slice().reverse().slice(0, 40).map(w => '<li><span class="l-date">' + fmtDate(w.date) + '</span><div class="l-main"><b>' + fmtNum(w.kg) + ' кг</b></div><button type="button" class="del" data-action="delwt" data-v="' + w.id + '" aria-label="Видалити запис">Видалити</button></li>').join('')
+    : '<li class="empty" style="display:block">Записів поки немає.</li>';
+}
+
+/* ================= ЇЖА ================= */
+function targetInfo() {
+  if (D.nutrition) return { kcal: D.nutrition.kcal, p: D.nutrition.protein, f: D.nutrition.fat, c: D.nutrition.carbs, mode: D.nutrition.mode, source: 'AI', date: D.nutrition.date, why: D.nutrition.explanation };
+  const ln = localNorm();
+  if (ln) return { kcal: ln.tdee, mode: 'maintain', source: 'формула', why: 'Попередня оцінка за формулою Міффліна — Сан-Жеора: ваш витрачений обсяг калорій за день. Попросіть AI підібрати дефіцит або профіцит.' };
+  return null;
+}
+function renderFood() {
+  const today = todayISO();
+  if (!S.day) S.day = today;
+  $('dayLabel').textContent = S.day === today ? 'Сьогодні' : fmtDate(S.day);
+  $('nextDay').disabled = S.day >= today;
+  $('sub').textContent = '';
+  const t = dayTotals(S.day), tg = targetInfo();
+  const eaten = Math.round(t.kcal), over = tg && eaten > tg.kcal;
+  let h = '<div class="big"><span class="num">' + eaten + '</span><span>' + (tg ? '/ ' + tg.kcal + ' ккал' : 'ккал') + '</span></div>';
+  if (tg) {
+    h += '<div class="bar' + (over ? ' over' : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="' + tg.kcal + '" aria-valuenow="' + eaten + '"><i style="width:' + Math.min(100, eaten / tg.kcal * 100) + '%"></i></div>' +
+      '<div class="remain' + (over ? ' over' : '') + '">' + (over ? 'Перебір на ' + (eaten - tg.kcal) + ' ккал' : 'Залишилось ' + (tg.kcal - eaten) + ' ккал') + '</div>';
+  } else h += '<p class="sub">Щоб бачити норму, заповніть профіль (вік, зріст) і запишіть вагу.</p>';
+  const mc = (lbl, v, goal) => '<div><span class="num">' + Math.round(v) + (goal ? ' / ' + goal : '') + ' г</span><small>' + lbl + '</small></div>';
+  h += '<div class="macros">' + mc('Білки', t.p, tg && tg.p) + mc('Жири', t.f, tg && tg.f) + mc('Вуглеводи', t.c, tg && tg.c) + '</div>';
+  $('foodSummary').innerHTML = h;
+
+  let g = '<div class="goal"><div>';
+  if (tg) g += '<span class="tag">' + MODE[tg.mode] + '</span> <b>' + tg.kcal + ' ккал на день</b><small class="hint">Розрахунок: ' + tg.source + (tg.date ? ', ' + fmtDate(tg.date) : '') + '</small>';
+  else g += '<b>Норму ще не розраховано</b>';
+  g += '</div><button class="btn small" id="goalBtn" data-action="goal">' + (D.nutrition ? 'Перерахувати (AI)' : 'Розрахувати норму (AI)') + '</button></div>';
+  if (tg && tg.why) g += '<details><summary>Чому така ціль</summary><p class="plan-block">' + esc(tg.why) + '</p></details>';
+  g += '<div class="msg" id="goalMsg" role="status"></div>';
+  $('goalBox').innerHTML = g;
+
+  $('foodBanner').innerHTML = API_KEY ? '' : '<div class="banner"><span>Для оцінки калорій і норми потрібен ключ Gemini.</span><button class="btn small" data-action="tab" data-v="profile">Відкрити профіль</button></div>';
+  const meals = D.meals.filter(m => m.date === S.day).sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1);
+  $('mealList').innerHTML = meals.length ? meals.map(m => '<li><span class="l-date">' + esc(m.time || '') + '</span><div class="l-main"><b>' + esc(m.name) + '</b><span>' + Math.round(m.kcal) + ' ккал' + (m.amount ? ' · ' + esc(m.amount) : '') +
+    ' · Б' + Math.round(m.p || 0) + ' Ж' + Math.round(m.f || 0) + ' В' + Math.round(m.c || 0) + '</span></div><button type="button" class="del" data-action="delm" data-v="' + m.id + '" aria-label="Видалити">Видалити</button></li>').join('')
+    : '<li class="empty" style="display:block">За цей день їжі ще не записано.</li>';
+  renderReview(); renderPhoto();
+}
+function renderPhoto() {
+  const p = $('photoPrev');
+  if (!S.photo) { p.hidden = true; p.innerHTML = ''; return; }
+  p.hidden = false;
+  p.innerHTML = '<img src="' + S.photo + '" alt="Фото їжі"><button type="button" class="btn ghost small" data-action="rmphoto">Прибрати фото</button>';
+}
+function renderReview() {
+  const c = $('reviewCard');
+  if (!S.review) { c.hidden = true; c.innerHTML = ''; return; }
+  c.hidden = false;
+  const r = S.review;
+  c.innerHTML = '<h2>Перевірте перед записом</h2>' + (r.comment ? '<p class="sub plan-block">' + esc(r.comment) + '</p>' : '') +
+    r.items.map((it, i) => '<div class="rv"><div class="row"><div class="field" style="flex-basis:100%"><label>Страва</label><input type="text" data-rv="' + i + ':name" value="' + esc(it.name) + '"></div></div>' +
+      '<div class="row"><div class="field"><label>Ккал</label><input type="number" inputmode="decimal" min="0" data-rv="' + i + ':kcal" value="' + esc(it.kcal) + '"></div>' +
+      '<div class="field"><label>Білки, г</label><input type="number" inputmode="decimal" min="0" data-rv="' + i + ':p" value="' + esc(it.p) + '"></div>' +
+      '<div class="field"><label>Жири, г</label><input type="number" inputmode="decimal" min="0" data-rv="' + i + ':f" value="' + esc(it.f) + '"></div>' +
+      '<div class="field"><label>Вугл., г</label><input type="number" inputmode="decimal" min="0" data-rv="' + i + ':c" value="' + esc(it.c) + '"></div></div>' +
+      '<div class="row"><div class="field" style="flex-basis:100%"><label>Порція</label><input type="text" data-rv="' + i + ':amount" value="' + esc(it.amount) + '"></div></div>' +
+      '<div><button type="button" class="del" data-action="rvdel" data-v="' + i + '">Прибрати рядок</button></div></div>').join('') +
+    '<div class="btns" style="margin-top:8px"><button class="btn" data-action="rvsave">Додати в щоденник</button><button class="btn ghost small" data-action="rvadd">Додати рядок</button><button class="btn ghost small" data-action="rvcancel">Скасувати</button></div>';
+}
+
+/* ================= ТРЕНЕР ================= */
+function renderCoach() {
+  $('sub').textContent = 'Аналізує всі ваші дані: тренування, нотатки, вагу, харчування.';
+  $('coachBanner').innerHTML = API_KEY ? '' : '<div class="banner"><span>Для тренера потрібен ключ Gemini.</span><button class="btn small" data-action="tab" data-v="profile">Відкрити профіль</button></div>';
+  const p = D.plans[D.plans.length - 1], box = $('planBox');
+  if (!p) box.innerHTML = '<div class="empty">Плану ще немає. Натисніть кнопку вище.</div>';
+  else {
+    const d = p.data;
+    let h = '<h3>' + esc(d.title || 'Тренування') + ' · ' + fmtDate(p.date) + '</h3>';
+    if (d.analysis) h += '<p class="plan-block">' + esc(d.analysis) + '</p>';
+    if (d.warmup) h += '<h3>Розминка</h3><p class="plan-block">' + esc(d.warmup) + '</p>';
+    h += '<ul class="plan-items">' + (d.items || []).map((it, i) => {
+      const key = EX[it.ex] ? it.ex : null, t = key ? EX[key].type : null;
+      let tgt = '';
+      if (t === 'reps') tgt = num(it.sets) + ' × ' + num(it.reps);
+      else if (t === 'time') tgt = num(it.minutes) + ' хв';
+      else if (t === 'run') tgt = num(it.km) + ' км' + (num(it.minutes) ? ' · ' + num(it.minutes) + ' хв' : '');
+      else tgt = [it.sets && it.reps ? it.sets + ' × ' + it.reps : '', it.minutes ? it.minutes + ' хв' : ''].filter(Boolean).join(' · ');
+      return '<li><div><b>' + esc(key ? EX[key].name : (it.name || 'Вправа')) + '</b><span>' + esc(tgt) + (it.note ? ' · ' + esc(it.note) : '') + '</span></div>' +
+        (key ? '<button class="btn ghost small" data-action="prefill" data-v="' + i + '">Внести результат</button>' : '') + '</li>';
+    }).join('') + '</ul>';
+    if (d.cooldown) h += '<h3>Заминка</h3><p class="plan-block">' + esc(d.cooldown) + '</p>';
+    if (d.recovery) h += '<h3>Відновлення</h3><p class="plan-block">' + esc(d.recovery) + '</p>';
+    if (d.nutrition_tip) h += '<h3>Харчування</h3><p class="plan-block">' + esc(d.nutrition_tip) + '</p>';
+    box.innerHTML = h;
+  }
+  const log = $('chatLog');
+  log.innerHTML = D.chat.length ? D.chat.map(m => '<div class="bubble ' + (m.role === 'user' ? 'u' : 'a') + '">' + esc(m.text) + '</div>').join('') : '<div class="empty">Спитайте про техніку, відновлення, харчування або прогрес.</div>';
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ================= ПРОФІЛЬ ================= */
+function renderProfile() {
+  $('sub').textContent = 'Ці дані потрібні AI, щоб підбирати навантаження і норму калорій.';
+  const p = D.profile;
+  $('p-age').value = p.age; $('p-sex').value = p.sex; $('p-height').value = p.height; $('p-activity').value = p.activity;
+  $('p-notes').value = p.notes; $('p-key').value = API_KEY; $('p-model').value = p.model;
+}
+
+/* ================= вкладки ================= */
+function renderTabbar() {
+  $('tabbar').innerHTML = TABS.map(([k, l]) => '<button type="button" role="tab" data-action="tab" data-v="' + k + '" aria-selected="' + (S.tab === k) + '">' + l + '</button>').join('');
+}
+function showTab(k) {
+  S.tab = k;
+  document.querySelectorAll('[data-tab]').forEach(s => { s.hidden = s.dataset.tab !== k; });
+  $('title').textContent = TABS.find(t => t[0] === k)[2];
+  renderTabbar();
+  ({ log: renderLog, food: renderFood, weight: renderWeight, coach: renderCoach, profile: renderProfile })[k]();
+  window.scrollTo(0, 0);
+}
+
+/* ================= AI-дії ================= */
+async function analyzeFood() {
+  const text = $('foodText').value.trim();
+  if (!text && !S.photo) return setMsg('foodMsg', 'Опишіть їжу або додайте фото.', 'err');
+  setMsg('foodMsg', '');
+  await busy('analyzeBtn', 'Рахую…', async () => {
+    try {
+      const parts = [];
+      if (S.photo) parts.push({ inlineData: { mimeType: 'image/jpeg', data: S.photo.split(',')[1] } });
+      parts.push({ text: 'Користувач їв: ' + (text || '(див. фото)') });
+      const sys = 'Ти нутриціолог. Оціни калорії та БЖВ страв з опису та/або фото. Якщо порцію не вказано — припусти типову й запиши припущення в comment. ' +
+        'Відповідай ТІЛЬКИ валідним JSON: {"items":[{"name":"назва українською","amount":"напр. 150 г","kcal":0,"protein":0,"fat":0,"carbs":0}],"comment":"коротко про припущення й точність"}. ' +
+        'Числа — цілі, окремий рядок для кожної страви чи продукту.';
+      const res = parseJSON(await callGemini([{ role: 'user', parts }], sys, true));
+      const items = (res.items || []).map(i => ({ name: i.name || 'Страва', amount: i.amount || '', kcal: Math.round(num(i.kcal)), p: Math.round(num(i.protein)), f: Math.round(num(i.fat)), c: Math.round(num(i.carbs)) }));
+      if (!items.length) throw new Error('Не вдалося розпізнати їжу. Опишіть детальніше.');
+      S.review = { items, comment: res.comment || '' };
+      renderReview();
+      $('reviewCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) { setMsg('foodMsg', e.message, 'err'); }
+  });
+}
+async function calcGoal() {
+  const ln = localNorm();
+  if (!ln) return setMsg('goalMsg', 'Спершу вкажіть вік, зріст у профілі та запишіть вагу.', 'err');
+  setMsg('goalMsg', '');
+  await busy('goalBtn', 'Рахую…', async () => {
+    try {
+      const sys = COACH_SYSTEM + ' Тепер твоє завдання — визначити режим харчування: deficit, maintain або surplus — на основі віку, зросту, ваги, ІМТ, активності, тренувань, динаміки ваги й побажань користувача. ' +
+        'Правила безпеки: дефіцит не більший за ~20% від TDEE, профіцит ~10–15%; не опускайся нижче 1500 ккал для чоловіків і 1200 для жінок; білок 1,6–2,2 г на кг ваги. ' +
+        'Відповідай ТІЛЬКИ валідним JSON: {"mode":"deficit|maintain|surplus","kcal":0,"protein":0,"fat":0,"carbs":0,"weekly_change_kg":0,"explanation":"2–4 речення українською, чому саме так"}. Числа цілі (weekly_change_kg може бути з десятковою).';
+      const res = parseJSON(await callGemini([{ role: 'user', parts: [{ text: buildContext() }] }], sys, true));
+      if (!MODE[res.mode] || !(num(res.kcal) > 800)) throw new Error('AI повернув некоректну відповідь. Спробуйте ще раз.');
+      D.nutrition = { mode: res.mode, kcal: Math.round(num(res.kcal)), protein: Math.round(num(res.protein)), fat: Math.round(num(res.fat)), carbs: Math.round(num(res.carbs)),
+        explanation: (res.explanation || '') + (res.weekly_change_kg ? ' Очікувана зміна ваги: ' + fmtNum(num(res.weekly_change_kg)) + ' кг на тиждень.' : ''), date: todayISO() };
+      await save(); renderFood();
+    } catch (e) { setMsg('goalMsg', e.message, 'err'); }
+  });
+}
+async function makePlan() {
+  setMsg('planMsg', '');
+  await busy('planBtn', 'Думаю…', async () => {
+    try {
+      const wish = $('wish').value.trim();
+      const sys = COACH_SYSTEM + ' Побудуй наступне тренування, спираючись на результати попередніх тренувань і нотатки. Використовуй лише вправи з цього списку для поля "ex": ' + Object.keys(EX).map(k => k + ' (' + EX[k].name + ')').join(', ') +
+        '. Якщо потрібна інша вправа (розтяжка, кор), залиш "ex" порожнім і вкажи "name". Для reps-вправ заповни sets і reps, для shadow — minutes, для run — km і minutes. ' +
+        'Відповідай ТІЛЬКИ валідним JSON: {"title":"коротка назва","analysis":"3–5 речень: що покращилось, що відстає, що врахував із нотаток","warmup":"текст","items":[{"ex":"","name":"","sets":0,"reps":0,"minutes":0,"km":0,"note":"чому саме так / техніка"}],"cooldown":"текст","recovery":"коли наступне тренування, сон, відпочинок","nutrition_tip":"коротка порада за харчуванням"}.';
+      const msg = buildContext() + (wish ? '\nПОБАЖАННЯ НА СЬОГОДНІ: ' + wish : '');
+      const res = parseJSON(await callGemini([{ role: 'user', parts: [{ text: msg }] }], sys, true));
+      D.plans.push({ id: Date.now(), date: todayISO(), data: res });
+      D.plans = D.plans.slice(-10);
+      await save(); renderCoach();
+    } catch (e) { setMsg('planMsg', e.message, 'err'); }
+  });
+}
+async function sendChat() {
+  const q = $('chatIn').value.trim();
+  if (!q) return;
+  setMsg('chatMsg', '');
+  $('chatIn').value = '';
+  D.chat.push({ role: 'user', text: q });
+  renderCoach();
+  await busy('chatBtn', 'Думаю…', async () => {
+    try {
+      const hist = D.chat.slice(-12).map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+      const ans = await callGemini(hist, COACH_SYSTEM + ' Відповідай як у чаті: коротко, без заголовків і зірочок.\n\nДАНІ КОРИСТУВАЧА:\n' + buildContext(), false);
+      D.chat.push({ role: 'model', text: ans.trim() });
+      D.chat = D.chat.slice(-30);
+      await save(); renderCoach();
+    } catch (e) {
+      D.chat.pop(); $('chatIn').value = q; renderCoach(); setMsg('chatMsg', e.message, 'err');
+    }
+  });
+}
+
+/* ================= голос і фото ================= */
+let rec = null;
+function toggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return setMsg('foodMsg', 'Диктування не підтримується цим браузером. Скористайтеся мікрофоном на клавіатурі телефону.', 'err');
+  const btn = $('micBtn');
+  if (rec) { rec.stop(); return; }
+  rec = new SR(); rec.lang = 'uk-UA'; rec.interimResults = true; rec.continuous = false;
+  const base = $('foodText').value ? $('foodText').value.trim() + ' ' : '';
+  rec.onresult = ev => { let t = ''; for (let i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; $('foodText').value = base + t; };
+  rec.onerror = ev => { setMsg('foodMsg', ev.error === 'not-allowed' ? 'Немає доступу до мікрофона.' : 'Не вдалося розпізнати мову.', 'err'); };
+  rec.onend = () => { rec = null; btn.textContent = 'Диктувати'; };
+  btn.textContent = 'Слухаю… (стоп)';
+  setMsg('foodMsg', '');
+  try { rec.start(); } catch (e) { rec = null; btn.textContent = 'Диктувати'; }
+}
+function fileToJpeg(file, max) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const s = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Не вдалося прочитати фото.')); };
+    img.src = url;
+  });
+}
+
+/* ================= події ================= */
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-action]');
+  if (!b) return;
+  const a = b.dataset.action, v = b.dataset.v;
+  if (a === 'tab') showTab(v);
+  else if (a === 'ex') { S.ex = v; S.prefill = null; setMsg('msg', ''); renderLog(); }
+  else if (a === 'period') { S.period = v === 'all' ? 'all' : Number(v); renderLog(); }
+  else if (a === 'metric') { S.metric[S.ex] = v; renderLog(); }
+  else if (a === 'wperiod') { S.wPeriod = v === 'all' ? 'all' : Number(v); renderWeight(); }
+  else if (a === 'rpe') { S.rpe = Number(v); document.querySelectorAll('#rpeSeg button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.v === v))); }
+  else if (a === 'delw') { D.workouts = D.workouts.filter(x => String(x.id) !== v); await save(); renderLog(); }
+  else if (a === 'delwt') { D.weights = D.weights.filter(x => String(x.id) !== v); await save(); renderWeight(); }
+  else if (a === 'delm') { D.meals = D.meals.filter(x => String(x.id) !== v); await save(); renderFood(); }
+  else if (a === 'day') {
+    const d = parseISO(S.day || todayISO()); d.setDate(d.getDate() + Number(v));
+    const iso = isoOf(d); if (iso <= todayISO()) { S.day = iso; renderFood(); }
+  }
+  else if (a === 'mic') toggleMic();
+  else if (a === 'photo') $('photoIn').click();
+  else if (a === 'rmphoto') { S.photo = null; renderPhoto(); }
+  else if (a === 'manual') { S.review = { items: [{ name: '', amount: '', kcal: '', p: '', f: '', c: '' }], comment: '' }; renderReview(); }
+  else if (a === 'analyze') analyzeFood();
+  else if (a === 'goal') calcGoal();
+  else if (a === 'rvadd') { S.review.items.push({ name: '', amount: '', kcal: '', p: '', f: '', c: '' }); renderReview(); }
+  else if (a === 'rvdel') { S.review.items.splice(Number(v), 1); if (!S.review.items.length) S.review = null; renderReview(); }
+  else if (a === 'rvcancel') { S.review = null; renderReview(); }
+  else if (a === 'rvsave') {
+    const items = S.review.items.filter(i => num(i.kcal) > 0);
+    if (!items.length) return setMsg('foodMsg', 'Вкажіть калорії хоча б для одного рядка.', 'err');
+    const now = new Date(), time = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    items.forEach((i, k) => D.meals.push({ id: Date.now() + k, date: S.day || todayISO(), time, name: String(i.name || 'Страва').trim() || 'Страва', amount: i.amount, kcal: num(i.kcal), p: num(i.p), f: num(i.f), c: num(i.c) }));
+    S.review = null; S.photo = null; $('foodText').value = ''; setMsg('foodMsg', 'Додано в щоденник.', 'ok');
+    await save(); renderFood();
+  }
+  else if (a === 'plan') makePlan();
+  else if (a === 'chat') sendChat();
+  else if (a === 'clearchat') { D.chat = []; await save(); renderCoach(); }
+  else if (a === 'prefill') {
+    const it = D.plans[D.plans.length - 1].data.items[Number(v)];
+    S.prefill = { ex: it.ex, sets: it.sets, reps: it.reps, minutes: it.minutes || null, km: it.km || null };
+    S.ex = it.ex; showTab('log');
+  }
+  else if (a === 'testai') {
+    setMsg('aiMsg', 'Перевіряю…');
+    try { await callGemini([{ role: 'user', parts: [{ text: 'Відповідай одним словом: ок' }] }], 'Ти тестовий помічник.', false); setMsg('aiMsg', 'З’єднання працює. Модель: ' + (D.profile.model || DEFAULT_MODEL), 'ok'); }
+    catch (e) { setMsg('aiMsg', e.message, 'err'); }
+  }
+  else if (a === 'export') {
+    const blob = new Blob([JSON.stringify(D, null, 1)], { type: 'application/json' });
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'trainer-' + todayISO() + '.json';
+    document.body.appendChild(link); link.click(); link.remove(); setMsg('dataMsg', 'Копію збережено.', 'ok');
+  }
+  else if (a === 'import') $('importIn').click();
+});
+
+document.addEventListener('input', ev => {
+  const t = ev.target;
+  if (t.dataset && t.dataset.rv) { const [i, k] = t.dataset.rv.split(':'); S.review.items[Number(i)][k] = t.value; }
+});
+document.addEventListener('change', async ev => {
+  const t = ev.target;
+  if (t.id === 'photoIn' && t.files[0]) {
+    try { S.photo = await fileToJpeg(t.files[0], 1280); renderPhoto(); setMsg('foodMsg', ''); } catch (e) { setMsg('foodMsg', e.message, 'err'); }
+    t.value = '';
+  } else if (t.id === 'importIn' && t.files[0]) {
+    try { const p = JSON.parse(await t.files[0].text()); D = Object.assign(defaults(), p); D.profile = Object.assign(defaults().profile, p.profile || {}); await save(); setMsg('dataMsg', 'Дані завантажено.', 'ok'); renderProfile(); }
+    catch (e) { setMsg('dataMsg', 'Файл не схожий на копію даних.', 'err'); }
+    t.value = '';
+  } else if (/^p-/.test(t.id || '')) {
+    const p = D.profile;
+    p.age = $('p-age').value; p.sex = $('p-sex').value; p.height = $('p-height').value; p.activity = $('p-activity').value;
+    p.notes = $('p-notes').value; p.model = $('p-model').value.trim() || DEFAULT_MODEL;
+    API_KEY = $('p-key').value.trim();
+    await sset('wl-key', API_KEY); await save(); setMsg('pMsg', 'Збережено.', 'ok');
+  }
+});
+
+$('form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const date = $('date').value;
+  if (!date) return setMsg('msg', 'Оберіть дату.', 'err');
+  const type = EX[S.ex].type, g = id => num($(id).value);
+  const e = { id: Date.now(), date, ex: S.ex, rpe: S.rpe, note: $('f-note').value.trim() };
+  if (type === 'reps') { e.sets = Math.round(g('f-sets')); e.reps = Math.round(g('f-reps')); if (!(e.sets > 0 && e.reps > 0)) return setMsg('msg', 'Вкажіть підходи й повторення.', 'err'); }
+  else if (type === 'time') { e.minutes = g('f-min'); if (!(e.minutes > 0)) return setMsg('msg', 'Вкажіть тривалість у хвилинах.', 'err'); }
+  else { e.km = g('f-km'); e.minutes = g('f-min'); if (!(e.km > 0 && e.minutes > 0)) return setMsg('msg', 'Вкажіть дистанцію та час.', 'err'); }
+  D.workouts.push(e); S.prefill = null;
+  await save(); renderLog(); setMsg('msg', 'Записано.', 'ok');
+});
+$('wForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const date = $('wDate').value, kg = num($('wKg').value);
+  if (!date) return setMsg('wMsg', 'Оберіть дату.', 'err');
+  if (!(kg > 20 && kg < 400)) return setMsg('wMsg', 'Вкажіть вагу в кілограмах.', 'err');
+  const ex = D.weights.find(w => w.date === date);
+  if (ex) ex.kg = kg; else D.weights.push({ id: Date.now(), date, kg });
+  $('wKg').value = '';
+  await save(); renderWeight(); setMsg('wMsg', 'Записано.', 'ok');
+});
+
+/* ================= старт ================= */
+(async function init() {
+  await loadAll();
+  S.day = todayISO();
+  $('date').value = todayISO(); $('wDate').value = todayISO();
+  showTab('log');
+})();
+</script>
+</body>
+</html>
